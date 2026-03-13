@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Alumnos — Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div id="header-container"></div>
+  <nav id="nav-container"></nav>
+
+  <main class="content">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="buscador" placeholder="Buscar alumno..." oninput="filtrar()">
+    </div>
+
+    <div class="filter-label">Nivel</div>
+    <div class="filters f4">
+      <div class="fbtn active" data-value="" onclick="sf(this)"><img src="icons/todos.png"><div class="flabel">Todos</div></div>
+      <div class="fbtn" data-value="Principiante" onclick="sf(this)"><img src="icons/principiante.png"><div class="flabel">Princ.</div></div>
+      <div class="fbtn" data-value="Intermedio"   onclick="sf(this)"><img src="icons/intermedio.png"><div class="flabel">Inter.</div></div>
+      <div class="fbtn" data-value="Avanzado"     onclick="sf(this)"><img src="icons/avanzado.png"><div class="flabel">Avanz.</div></div>
+    </div>
+
+    <div class="sec">
+      <img src="icons/alumnos.png">
+      <div class="sec-title">Alumnos</div>
+      <div class="sec-count" id="contador">—</div>
+    </div>
+
+    <div id="lista-alumnos"><div class="loading"><div class="spinner"></div></div></div>
+  </main>
+
+  <button class="fab" onclick="abrirNuevo()">+</button>
+
+  <!-- Sheet alumno -->
+  <div class="overlay" id="sh-alumno">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="sh-titulo">Nuevo alumno</div>
+      <input type="hidden" id="al-id">
+      <div class="fgrp">
+        <div class="flbl">Nombre completo</div>
+        <input class="finp" id="al-nombre" placeholder="Nombre Apellidos">
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <div class="flbl">Teléfono</div>
+          <input class="finp" id="al-telefono" placeholder="6xx xxx xxx" type="tel">
+        </div>
+        <div class="fgrp">
+          <div class="flbl">Nivel</div>
+          <select class="fsel" id="al-nivel">
+            <option>Principiante</option>
+            <option>Intermedio</option>
+            <option>Avanzado</option>
+          </select>
+        </div>
+      </div>
+      <div class="fgrp">
+        <div class="flbl">Grupo</div>
+        <select class="fsel" id="al-grupo"><option value="">Sin grupo</option></select>
+      </div>
+      <div class="fgrp">
+        <div class="flbl">Email (opcional)</div>
+        <input class="finp" id="al-email" placeholder="email@ejemplo.com" type="email">
+      </div>
+      <div class="sheet-btns">
+        <button class="sbtn" onclick="closeSheet('sh-alumno')">Cancelar</button>
+        <button class="sbtn prim" onclick="guardar()">✓ Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diálogo confirmación -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-titulo">¿Eliminar alumno?</div>
+      <div class="confirm-texto" id="confirm-texto">Esta acción no se puede deshacer.</div>
+      <div class="confirm-btns">
+        <button class="cbtn" onclick="document.getElementById('confirm-overlay').classList.remove('open')">Cancelar</button>
+        <button class="cbtn danger" id="confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let _alumnos = [];
+let _grupos  = [];
+let _filtroNivel = '';
+
+// ── Filtros ────────────────────────────────────
+function sf(btn) {
+  btn.closest('.filters').querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _filtroNivel = btn.dataset.value || '';
+  filtrar();
+}
+
+function filtrar() {
+  const q = document.getElementById('buscador').value.toLowerCase();
+  const lista = _alumnos.filter(a => {
+    const nivelOk = !_filtroNivel || a.nivel === _filtroNivel;
+    const textOk  = !q || a.nombre.toLowerCase().includes(q);
+    return nivelOk && textOk;
+  });
+  renderLista(lista);
+}
+
+// ── Render ─────────────────────────────────────
+function renderLista(alumnos) {
+  document.getElementById('contador').textContent = alumnos.length;
+  const el = document.getElementById('lista-alumnos');
+  if (!alumnos.length) { showEmpty('lista-alumnos', 'Sin alumnos con ese filtro'); return; }
+
+  el.innerHTML = alumnos.map(a => {
+    const grupo = _grupos.find(g => g.id === a.grupo_id);
+    return `
+    <div class="card" id="card-${a.id}">
+      <div class="card-main" onclick="toggleCard('${a.id}')">
+        ${avatarHTML(a.nombre)}
+        <div class="ci">
+          <div class="cn">${a.nombre}</div>
+          <div class="cm">
+            ${chipNivel(a.nivel)}
+            ${grupo ? `<span class="chip cgr">${grupo.nombre}</span>` : ''}
+          </div>
+        </div>
+        <div class="chev" id="chev-${a.id}">▼</div>
+      </div>
+      <div class="exp" id="exp-${a.id}">
+        ${a.telefono ? `<div class="dl">Teléfono</div><div class="dv">${a.telefono}</div>` : ''}
+        ${a.email    ? `<div class="dl">Email</div><div class="dv">${a.email}</div>` : ''}
+        ${grupo      ? `<div class="dl">Grupo</div><div class="dv">${grupo.nombre}</div>` : ''}
+        <div class="dl">Cobros</div>
+        <div class="dv"><a href="cobros.html?alumno_id=${a.id}" style="color:var(--azul);font-weight:800">Ver cobros →</a></div>
+        <div class="abtns">
+          <button class="abtn" onclick="window.location.href='cobros.html?alumno_id=${a.id}'">💰 Cobros</button>
+          <button class="abtn prim" onclick="abrirEditar(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️ Editar</button>
+          <button class="abtn dang" onclick="confirmarEliminar('${a.id}','${a.nombre}')">🗑</button>
+        </div>
+      </div>
+    </div>`}).join('');
+}
+
+// ── CRUD ───────────────────────────────────────
+function abrirNuevo() {
+  document.getElementById('sh-titulo').textContent = 'Nuevo alumno';
+  document.getElementById('al-id').value      = '';
+  document.getElementById('al-nombre').value  = '';
+  document.getElementById('al-telefono').value= '';
+  document.getElementById('al-email').value   = '';
+  document.getElementById('al-nivel').value   = 'Principiante';
+  document.getElementById('al-grupo').value   = '';
+  openSheet('sh-alumno');
+}
+
+function abrirEditar(a) {
+  document.getElementById('sh-titulo').textContent  = 'Editar alumno';
+  document.getElementById('al-id').value       = a.id;
+  document.getElementById('al-nombre').value   = a.nombre;
+  document.getElementById('al-telefono').value = a.telefono || '';
+  document.getElementById('al-email').value    = a.email    || '';
+  document.getElementById('al-nivel').value    = a.nivel    || 'Principiante';
+  document.getElementById('al-grupo').value    = a.grupo_id || '';
+  openSheet('sh-alumno');
+}
+
+async function guardar() {
+  const nombre = document.getElementById('al-nombre').value.trim();
+  if (!nombre) { toast('Escribe el nombre', 'warn'); return; }
+  const alumno = {
+    id:       document.getElementById('al-id').value || undefined,
+    nombre,
+    nivel:    document.getElementById('al-nivel').value,
+    telefono: document.getElementById('al-telefono').value.trim(),
+    email:    document.getElementById('al-email').value.trim(),
+    grupo_id: document.getElementById('al-grupo').value || null,
+  };
+  try {
+    await saveAlumno(alumno);
+    closeSheet('sh-alumno');
+    toast('Alumno guardado', 'ok');
+    await cargar();
+  } catch(e) {
+    toast('Error al guardar', 'err');
+    console.error(e);
+  }
+}
+
+function confirmarEliminar(id, nombre) {
+  document.getElementById('confirm-texto').textContent = `¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-ok').onclick = async () => {
+    document.getElementById('confirm-overlay').classList.remove('open');
+    try {
+      await deleteAlumno(id);
+      toast('Alumno eliminado', 'ok');
+      await cargar();
+    } catch(e) { toast('Error al eliminar','err'); }
+  };
+}
+
+// ── Carga ──────────────────────────────────────
+async function cargar() {
+  showLoading('lista-alumnos');
+  _alumnos = await getAlumnos();
+  filtrar();
+}
+
+function cargarGrupos() {
+  getGrupos().then(grupos => {
+    _grupos = grupos;
+    const sel = document.getElementById('al-grupo');
+    grupos.forEach(g => {
+      const o = document.createElement('option');
+      o.value = g.id; o.textContent = g.nombre;
+      sel.appendChild(o);
+    });
+  });
+}
+
+async function init() {
+  renderHeader({ titulo: 'Escuela de Pádel', subtitulo: 'Alumnos', icono: 'icons/alumnos.png', botonDerecho: 'menu' });
+  renderNav('alumnos');
+  await initStore();
+  cargarGrupos();
+  await cargar();
+}
+init();
+</script>
+</body>
+</html>

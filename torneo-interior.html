@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Torneo — Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .torneo-hero{background:linear-gradient(135deg,#2563eb,#1d4ed8);border-radius:13px;padding:13px 15px;margin-bottom:10px;color:#fff}
+    .th-name{font-size:17px;font-weight:900}.th-info{font-size:10px;opacity:.85;font-weight:600;margin-top:2px}
+    .th-badge{display:inline-block;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:800;margin-top:5px}
+    .jornada-nav{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+    .jnav-btn{width:34px;height:34px;background:#fff;border:1.5px solid var(--borde);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;font-weight:900;color:var(--texto)}
+    .jnav-sel{flex:1;background:#fff;border:1.5px solid var(--borde);border-radius:8px;padding:7px 11px;font-family:Nunito,sans-serif;font-size:12px;font-weight:800;color:var(--texto);appearance:none;text-align:center}
+    .pista-block{background:#fff;border-radius:12px;padding:11px;margin-bottom:9px;border:1.5px solid var(--borde)}
+    .pista-title{font-size:10px;font-weight:900;color:var(--verde);text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
+    .partido{display:flex;align-items:center;gap:5px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #f0f4f8}
+    .partido:last-of-type{border-bottom:none;margin-bottom:4px;padding-bottom:0}
+    .par-names{flex:1;text-align:center}
+    .par-pair{font-size:10px;font-weight:800;color:var(--texto);line-height:1.4}
+    .vs{background:#f1f5f9;border-radius:5px;padding:2px 5px;font-size:9px;font-weight:900;color:var(--sub);flex-shrink:0}
+    .res-box{display:flex;align-items:center;gap:5px;justify-content:center;margin:7px 0}
+    .res-input{width:48px;height:40px;border:2px solid var(--borde);border-radius:9px;text-align:center;font-family:Nunito,sans-serif;font-size:18px;font-weight:900;color:var(--texto);background:#f8fafc;outline:none}
+    .res-input.ok{background:#e8f5e9;border-color:var(--verde);color:var(--verde)}
+    .res-dash{font-size:16px;font-weight:900;color:var(--sutil)}
+    .btn-val{width:100%;padding:8px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-family:Nunito,sans-serif;font-size:11px;font-weight:800;cursor:pointer;margin-top:2px}
+    .btn-reset{width:100%;padding:8px;background:#f1f5f9;color:var(--sub);border:1.5px solid var(--borde);border-radius:8px;font-family:Nunito,sans-serif;font-size:11px;font-weight:800;cursor:pointer;margin-top:2px;display:none}
+    .torneo-actions{display:flex;gap:6px;margin:8px 0}
+    .btn-comp{flex:1;padding:9px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;font-family:Nunito,sans-serif;font-size:11px;font-weight:800;color:var(--verde);cursor:pointer}
+    .btn-fin{flex:1;padding:9px;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:9px;font-family:Nunito,sans-serif;font-size:11px;font-weight:800;color:var(--azul);cursor:pointer}
+    .btn-del{width:38px;padding:9px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:9px;font-size:11px;cursor:pointer}
+    .clas-table{width:100%;border-collapse:collapse;font-size:11px}
+    .clas-table th{background:#f8fafc;padding:5px 7px;font-weight:800;color:var(--sutil);font-size:9px;text-transform:uppercase;text-align:center;border-bottom:1px solid var(--borde)}
+    .clas-table td{padding:6px 7px;text-align:center;font-weight:700;color:var(--texto);border-bottom:1px solid #f0f4f8}
+    .clas-table td:nth-child(2){text-align:left;font-weight:800}
+  </style>
+</head>
+<body>
+<div class="page">
+  <div id="header-container"></div>
+  <div class="sep"></div>
+
+  <main class="content" style="padding-top:12px" id="main">
+    <div class="loading"><div class="spinner"></div></div>
+  </main>
+
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-titulo">¿Eliminar torneo?</div>
+      <div class="confirm-texto">Esta acción no se puede deshacer.</div>
+      <div class="confirm-btns">
+        <button class="cbtn" onclick="document.getElementById('confirm-overlay').classList.remove('open')">Cancelar</button>
+        <button class="cbtn danger" id="confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+const params   = new URLSearchParams(location.search);
+const torneoId = params.get('id');
+let _torneo    = null;
+let _jornada   = 1;
+let _nJornadas = 1;
+
+function agruparPorJornada(partidos) {
+  const map = {};
+  partidos.forEach(p => { if (!map[p.jornada]) map[p.jornada]={}; if (!map[p.jornada][p.pista]) map[p.jornada][p.pista]=[]; map[p.jornada][p.pista].push(p); });
+  return map;
+}
+
+function clasificacion(partidos, participantes) {
+  const pts = {};
+  participantes.forEach(p => pts[p.nombre] = { pj:0, pg:0, pts:0 });
+  partidos.filter(p=>p.resultado_a!=null).forEach(p => {
+    const a = p.pareja_a, b = p.pareja_b, ra = p.resultado_a, rb = p.resultado_b;
+    if (!pts[a]) pts[a]={pj:0,pg:0,pts:0};
+    if (!pts[b]) pts[b]={pj:0,pg:0,pts:0};
+    pts[a].pj++; pts[b].pj++;
+    pts[a].pts += ra; pts[b].pts += rb;
+    if (ra > rb) pts[a].pg++; else if (rb > ra) pts[b].pg++;
+  });
+  return Object.entries(pts).map(([n,v])=>({nombre:n,...v})).sort((a,b)=>b.pts-a.pts||b.pg-a.pg);
+}
+
+function renderPartido(p) {
+  const validado = p.resultado_a != null;
+  const idA = `ra-${p.id}`, idB = `rb-${p.id}`;
+  return `
+  <div class="partido">
+    <div class="par-names"><div class="par-pair">${p.pareja_a}</div></div>
+    <div class="vs">VS</div>
+    <div class="par-names"><div class="par-pair">${p.pareja_b}</div></div>
+  </div>
+  <div class="res-box">
+    <input class="res-input ${validado?'ok':''}" id="${idA}" value="${validado?p.resultado_a:0}" ${validado?'readonly':''} onclick="this.select()">
+    <span class="res-dash">—</span>
+    <input class="res-input ${validado?'ok':''}" id="${idB}" value="${validado?p.resultado_b:0}" ${validado?'readonly':''} onclick="this.select()">
+  </div>
+  <button class="btn-val" id="vb-${p.id}" style="display:${validado?'none':'block'}" onclick="validar('${p.id}','${idA}','${idB}')">✓ Validar resultado</button>
+  <button class="btn-reset" id="rb-${p.id}" style="display:${validado?'block':'none'}" onclick="resetPartido('${p.id}','${idA}','${idB}')">↺ Reiniciar</button>`;
+}
+
+function renderMain() {
+  const jMap = agruparPorJornada(_torneo.partidos||[]);
+  _nJornadas = Math.max(...Object.keys(jMap).map(Number), 1);
+  const pistas = jMap[_jornada] || {};
+
+  const pistasHTML = Object.entries(pistas).map(([pista, partidos]) => `
+    <div class="pista-block">
+      <div class="pista-title">🟢 ${pista}</div>
+      ${partidos.map(renderPartido).join('')}
+    </div>`).join('') || '<div class="empty-state">Sin partidos en esta jornada</div>';
+
+  const cls = clasificacion(_torneo.partidos||[], _torneo.participantes||[]);
+  const medals = ['🥇','🥈','🥉'];
+  const clsHTML = cls.length ? `
+    <table class="clas-table">
+      <tr><th>#</th><th>Jugador</th><th>PJ</th><th>PG</th><th>Pts</th></tr>
+      ${cls.map((r,i)=>`<tr><td>${medals[i]||i+1}</td><td>${r.nombre}</td><td>${r.pj}</td><td>${r.pg}</td><td style="color:var(--azul);font-weight:900">${r.pts}</td></tr>`).join('')}
+    </table>` : '<div class="empty-state">Sin partidos validados aún</div>';
+
+  const jOpts = Array.from({length:_nJornadas},(_,i)=>`<option value="${i+1}" ${_jornada===i+1?'selected':''}>Jornada ${i+1}</option>`).join('');
+
+  document.getElementById('main').innerHTML = `
+    <div class="torneo-hero">
+      <div class="th-name">${_torneo.nombre}</div>
+      <div class="th-info">${_torneo.num_jugadores||'?'} jugadores · Jornada ${_jornada} de ${_nJornadas}</div>
+      <span class="th-badge">${_torneo.estado==='finalizado'?'🏁 Finalizado':'🟢 En curso'}</span>
+    </div>
+    <div class="jornada-nav">
+      <button class="jnav-btn" onclick="cambiarJornada(${_jornada-1})">‹</button>
+      <select class="jnav-sel" onchange="cambiarJornada(+this.value)">${jOpts}</select>
+      <button class="jnav-btn" onclick="cambiarJornada(${_jornada+1})">›</button>
+    </div>
+    ${pistasHTML}
+    <div class="torneo-actions">
+      <button class="btn-comp">📤 Compartir</button>
+      <button class="btn-fin" onclick="finalizarTorneo()">🏁 Finalizar</button>
+      <button class="btn-del" onclick="confirmarEliminar()">🗑</button>
+    </div>
+    <div style="font-size:13px;font-weight:900;color:var(--texto);margin:6px 0 4px">Clasificación</div>
+    ${clsHTML}`;
+}
+
+function cambiarJornada(j) {
+  if (j < 1 || j > _nJornadas) return;
+  _jornada = j;
+  renderMain();
+}
+
+async function validar(id, idA, idB) {
+  const ra = parseInt(document.getElementById(idA).value)||0;
+  const rb = parseInt(document.getElementById(idB).value)||0;
+  try {
+    await savePartido({ id, resultado_a: ra, resultado_b: rb });
+    const p = _torneo.partidos.find(x=>x.id===id);
+    if (p) { p.resultado_a=ra; p.resultado_b=rb; }
+    renderMain();
+    toast('Resultado guardado','ok');
+  } catch(e) { toast('Error al guardar','err'); }
+}
+
+async function resetPartido(id, idA, idB) {
+  try {
+    await savePartido({ id, resultado_a: null, resultado_b: null });
+    const p = _torneo.partidos.find(x=>x.id===id);
+    if (p) { p.resultado_a=null; p.resultado_b=null; }
+    renderMain();
+  } catch(e) { toast('Error','err'); }
+}
+
+async function finalizarTorneo() {
+  try {
+    await saveTorneo({ id: torneoId, estado: 'finalizado' });
+    _torneo.estado = 'finalizado';
+    renderMain();
+    toast('Torneo finalizado','ok');
+  } catch(e) { toast('Error','err'); }
+}
+
+function confirmarEliminar() {
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-ok').onclick = async () => {
+    // Eliminar partidos y participantes primero
+    await _sb.from('partidos').delete().eq('torneo_id', torneoId);
+    await _sb.from('participantes').delete().eq('torneo_id', torneoId);
+    await _sb.from('torneos').delete().eq('id', torneoId);
+    window.location.href = 'torneos.html';
+  };
+}
+
+async function init() {
+  if (!torneoId) { window.location.href='torneos.html'; return; }
+  await initStore();
+  _torneo = await getTorneo(torneoId);
+
+  renderHeader({
+    titulo:       _torneo.nombre,
+    subtitulo:    `${_torneo.num_jugadores||'?'} jugadores`,
+    icono:        `icons/${({Americano:'americano',Escalera:'escalera',Mexicano:'mexicano','Round Robin':'robin'}[_torneo.tipo])||'torneos'}.png`,
+    botonDerecho: 'back',
+    onBack:       'torneos.html',
+  });
+
+  renderMain();
+}
+init();
+</script>
+</body>
+</html>

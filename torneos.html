@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Torneos — Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="header-container"></div>
+  <nav id="nav-container"></nav>
+
+  <main class="content">
+    <div class="filter-label">Tipo</div>
+    <div class="filters f4">
+      <div class="fbtn active" data-value="" onclick="sf(this)"><img src="icons/todos.png"><div class="flabel">Todos</div></div>
+      <div class="fbtn" data-value="Americano"   onclick="sf(this)"><img src="icons/americano.png"><div class="flabel">Americ.</div></div>
+      <div class="fbtn" data-value="Escalera"    onclick="sf(this)"><img src="icons/escalera.png"><div class="flabel">Escal.</div></div>
+      <div class="fbtn" data-value="Mexicano"    onclick="sf(this)"><img src="icons/mexicano.png"><div class="flabel">Mexic.</div></div>
+    </div>
+
+    <div class="sec">
+      <img src="icons/torneos.png">
+      <div class="sec-title">Torneos</div>
+      <div class="sec-count" id="contador">—</div>
+    </div>
+
+    <div id="lista-torneos"><div class="loading"><div class="spinner"></div></div></div>
+  </main>
+
+  <button class="fab" onclick="openSheet('sh-torneo')">+</button>
+
+  <!-- Sheet nuevo torneo -->
+  <div class="overlay" id="sh-torneo">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Nuevo torneo</div>
+      <div class="fgrp">
+        <div class="flbl">Nombre</div>
+        <input class="finp" id="to-nombre" placeholder="Ej: Americano Abril">
+      </div>
+      <div class="frow">
+        <div class="fgrp">
+          <div class="flbl">Tipo</div>
+          <select class="fsel" id="to-tipo">
+            <option>Americano</option>
+            <option>Escalera</option>
+            <option>Mexicano</option>
+            <option>Round Robin</option>
+          </select>
+        </div>
+        <div class="fgrp">
+          <div class="flbl">Jugadores</div>
+          <select class="fsel" id="to-jugadores">
+            <option value="8">8</option>
+            <option value="12">12</option>
+            <option value="16">16</option>
+            <option value="20">20</option>
+            <option value="24">24</option>
+          </select>
+        </div>
+      </div>
+      <div class="fgrp">
+        <div class="flbl">Fecha</div>
+        <input class="finp" id="to-fecha" type="date">
+      </div>
+      <div class="sheet-btns">
+        <button class="sbtn" onclick="closeSheet('sh-torneo')">Cancelar</button>
+        <button class="sbtn prim" onclick="crearTorneo()">✓ Crear torneo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-titulo">¿Eliminar torneo?</div>
+      <div class="confirm-texto" id="confirm-texto"></div>
+      <div class="confirm-btns">
+        <button class="cbtn" onclick="document.getElementById('confirm-overlay').classList.remove('open')">Cancelar</button>
+        <button class="cbtn danger" id="confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let _torneos = [];
+let _filtro  = '';
+
+const ICONO = { Americano:'icons/americano.png', Escalera:'icons/escalera.png',
+                Mexicano:'icons/mexicano.png', 'Round Robin':'icons/robin.png' };
+
+function sf(btn) {
+  btn.closest('.filters').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); _filtro = btn.dataset.value||''; filtrar();
+}
+
+function filtrar() {
+  const lista = _torneos.filter(t => !_filtro || t.tipo === _filtro);
+  renderLista(lista);
+}
+
+function chipEstado(estado) {
+  if (estado==='en_curso')   return '<span class="chip cam">En curso</span>';
+  if (estado==='finalizado') return '<span class="chip cgr">Finalizado</span>';
+  return `<span class="chip cgr">${estado||'—'}</span>`;
+}
+
+function renderLista(lista) {
+  document.getElementById('contador').textContent = lista.length;
+  const el = document.getElementById('lista-torneos');
+  if (!lista.length) { showEmpty('lista-torneos','Sin torneos aún'); return; }
+  el.innerHTML = lista.map(t => `
+    <div class="card" style="cursor:pointer" onclick="window.location.href='torneo-interior.html?id=${t.id}'">
+      <div class="card-main">
+        <div class="av sq" style="background:#eff6ff;overflow:hidden">
+          <img src="${ICONO[t.tipo]||'icons/torneos.png'}" style="width:32px;height:32px;object-fit:contain">
+        </div>
+        <div class="ci">
+          <div class="cn">${t.nombre}</div>
+          <div class="cm">
+            <span class="chip caz">${t.tipo}</span>
+            <span class="chip cgr">${t.num_jugadores||'?'} jug.</span>
+            ${chipEstado(t.estado)}
+          </div>
+        </div>
+        <div style="font-size:14px;color:var(--sutil)">›</div>
+      </div>
+    </div>`).join('');
+}
+
+async function crearTorneo() {
+  const nombre = document.getElementById('to-nombre').value.trim();
+  if (!nombre) { toast('Escribe el nombre','warn'); return; }
+  const torneo = {
+    nombre,
+    tipo:         document.getElementById('to-tipo').value,
+    num_jugadores:parseInt(document.getElementById('to-jugadores').value),
+    fecha:        document.getElementById('to-fecha').value || new Date().toISOString().slice(0,10),
+    estado:       'en_curso',
+  };
+  try {
+    const t = await saveTorneo(torneo);
+    closeSheet('sh-torneo');
+    toast('Torneo creado','ok');
+    window.location.href = `torneo-interior.html?id=${t.id}`;
+  } catch(e) { toast('Error al crear','err'); console.error(e); }
+}
+
+async function init() {
+  renderHeader({ titulo:'Escuela de Pádel', subtitulo:'Torneos', icono:'icons/torneos.png', botonDerecho:'menu' });
+  renderNav('torneos');
+  document.getElementById('to-fecha').value = new Date().toISOString().slice(0,10);
+  await initStore();
+  showLoading('lista-torneos');
+  _torneos = await getTorneos();
+  filtrar();
+}
+init();
+</script>
+</body>
+</html>

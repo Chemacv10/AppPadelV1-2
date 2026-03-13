@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Stats — Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .stats-sec{background:var(--card);border-radius:12px;margin-bottom:9px;border:1.5px solid var(--borde);overflow:hidden}
+    .stats-sec-hdr{padding:10px 13px 6px;font-size:11px;font-weight:900;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #f0f4f8}
+  </style>
+</head>
+<body>
+<div class="page">
+  <div id="header-container"></div>
+  <nav id="nav-container"></nav>
+
+  <main class="content">
+
+    <div class="filter-label">Sección</div>
+    <div class="filters f4">
+      <div class="fbtn active" data-sec="general"    onclick="sfSec(this)"><img src="icons/inicio.png"><div class="flabel">General</div></div>
+      <div class="fbtn"        data-sec="alumnos"    onclick="sfSec(this)"><img src="icons/alumnos.png"><div class="flabel">Alumnos</div></div>
+      <div class="fbtn"        data-sec="grupos"     onclick="sfSec(this)"><img src="icons/grupos.png"><div class="flabel">Grupos</div></div>
+      <div class="fbtn"        data-sec="ejercicios" onclick="sfSec(this)"><img src="icons/ejercicios.png"><div class="flabel">Ejerc.</div></div>
+    </div>
+    <div class="filters f4" style="margin-top:3px">
+      <div class="fbtn"        data-sec="clases"     onclick="sfSec(this)"><img src="icons/clases.png"><div class="flabel">Clases</div></div>
+      <div class="fbtn"        data-sec="torneos"    onclick="sfSec(this)"><img src="icons/torneos.png"><div class="flabel">Torneos</div></div>
+      <div class="fbtn"        data-sec="cobros"     onclick="sfSec(this)"><img src="icons/mensual.png"><div class="flabel">Cobros</div></div>
+      <div class="fbtn"        data-sec="pistas"     onclick="sfSec(this)"><img src="icons/pistas.png"><div class="flabel">Pistas</div></div>
+    </div>
+
+    <div class="filter-label" style="margin-top:8px">Período</div>
+    <div class="filters f5">
+      <div class="fbtn"        data-per="semana"    onclick="sfPer(this)"><img src="icons/semana.png"><div class="flabel">Semana</div></div>
+      <div class="fbtn active" data-per="mes"       onclick="sfPer(this)"><img src="icons/mes.png"><div class="flabel">Mes</div></div>
+      <div class="fbtn"        data-per="trimestre" onclick="sfPer(this)"><img src="icons/trimestre.png"><div class="flabel">Trimes.</div></div>
+      <div class="fbtn"        data-per="anio"      onclick="sfPer(this)"><img src="icons/anio.png"><div class="flabel">Año</div></div>
+      <div class="fbtn"        data-per="todo"      onclick="sfPer(this)"><img src="icons/todos.png"><div class="flabel">Todo</div></div>
+    </div>
+
+    <div id="stats-contenido" style="margin-top:10px">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let _seccion  = 'general';
+let _periodo  = 'mes';
+let _datos    = {};
+
+function sfSec(btn) {
+  // Desactivar todos los botones de ambas filas de secciones
+  document.querySelectorAll('[data-sec]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _seccion = btn.dataset.sec;
+  renderStats();
+}
+function sfPer(btn) {
+  btn.closest('.filters').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _periodo = btn.dataset.per;
+  cargar();
+}
+
+function kpiRow(kpis) {
+  return `<div class="kpi-row kpi-${kpis.length<=2?'2':'3'}">${kpis.map(k=>`
+    <div class="kpi ${k.color||'azul'}">
+      <div class="kpi-val">${k.val}</div>
+      <div class="kpi-lbl">${k.lbl}</div>
+    </div>`).join('')}</div>`;
+}
+
+function barras(items, colorFill='#2563eb') {
+  if (!items.length) return '<div class="empty-state" style="margin:8px 11px">Sin datos</div>';
+  const max = Math.max(...items.map(i=>i.val),1);
+  return `<div class="bar-section">${items.map(i=>`
+    <div class="bar-row">
+      <div class="bar-label">${i.lbl}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(i.val/max*100).toFixed(0)}%;background:${colorFill}"></div></div>
+      <div class="bar-val">${i.val}</div>
+    </div>`).join('')}</div>`;
+}
+
+function renderGeneral() {
+  const d = _datos;
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Resumen general</div>
+      ${kpiRow([
+        {val:d.totalAlumnos||0, lbl:'Alumnos',  color:'azul'},
+        {val:d.totalGrupos||0,  lbl:'Grupos',   color:'verde'},
+        {val:d.totalEjercicio||0,lbl:'Ejercicios',color:'naranja'},
+      ])}
+      ${kpiRow([
+        {val:d.totalClases||0,  lbl:'Clases',   color:'azul'},
+        {val:d.totalTorneos||0, lbl:'Torneos',  color:'morado'},
+        {val:(d.totalCobrado||0).toFixed(0)+'€',lbl:'Cobrado',color:'verde'},
+      ])}
+    </div>`;
+}
+
+function renderAlumnos() {
+  const d = _datos;
+  const niveles = [
+    {lbl:'Principiante', val: d.alumnosPorNivel?.Principiante||0},
+    {lbl:'Intermedio',   val: d.alumnosPorNivel?.Intermedio||0},
+    {lbl:'Avanzado',     val: d.alumnosPorNivel?.Avanzado||0},
+  ];
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Alumnos</div>
+      ${kpiRow([{val:d.totalAlumnos||0,lbl:'Total',color:'azul'},{val:d.alumnosNuevos||0,lbl:'Nuevos',color:'verde'}])}
+      <div class="stats-sec-hdr" style="margin-top:4px">Por nivel</div>
+      ${barras(niveles,'#2563eb')}
+    </div>`;
+}
+
+function renderGrupos() {
+  const d = _datos;
+  const gs = (d.grupos||[]).map(g=>({lbl:g.nombre, val:g.num_alumnos||0}));
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Grupos</div>
+      ${kpiRow([{val:d.totalGrupos||0,lbl:'Total',color:'azul'}])}
+      <div class="stats-sec-hdr" style="margin-top:4px">Alumnos por grupo</div>
+      ${barras(gs,'#16a34a')}
+    </div>`;
+}
+
+function renderEjercicios() {
+  const d = _datos;
+  const top = (d.topEjercicios||[]).map(e=>({lbl:e.nombre,val:e.usos||0}));
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Ejercicios</div>
+      ${kpiRow([{val:d.totalEjercicio||0,lbl:'En biblioteca',color:'naranja'}])}
+      <div class="stats-sec-hdr" style="margin-top:4px">Top más usados</div>
+      ${barras(top,'#f59e0b')}
+    </div>`;
+}
+
+function renderClases() {
+  const d = _datos;
+  const estados = [
+    {lbl:'Realizadas',  val:d.clasesPorEstado?.Realizada||0},
+    {lbl:'Programadas', val:d.clasesPorEstado?.Programada||0},
+    {lbl:'Suspendidas', val:d.clasesPorEstado?.Suspendida||0},
+  ];
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Clases</div>
+      ${kpiRow([
+        {val:d.totalClases||0,      lbl:'Total',      color:'azul'},
+        {val:d.clasesPorEstado?.Realizada||0, lbl:'Realizadas',color:'verde'},
+        {val:d.clasesPorEstado?.Suspendida||0,lbl:'Suspendidas',color:'rojo'},
+      ])}
+      <div class="stats-sec-hdr" style="margin-top:4px">Por estado</div>
+      ${barras(estados,'#2563eb')}
+    </div>`;
+}
+
+function renderTorneos() {
+  const d = _datos;
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Torneos</div>
+      ${kpiRow([
+        {val:d.totalTorneos||0,     lbl:'Total',       color:'morado'},
+        {val:d.torneosEnCurso||0,   lbl:'En curso',    color:'naranja'},
+        {val:d.torneosFinalizados||0,lbl:'Finalizados',color:'verde'},
+      ])}
+    </div>`;
+}
+
+function renderCobros() {
+  const d = _datos;
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Cobros</div>
+      ${kpiRow([
+        {val:(d.totalCobrado||0).toFixed(0)+'€', lbl:'Cobrado',  color:'verde'},
+        {val:d.numCobros||0,                     lbl:'Cobros',   color:'azul'},
+      ])}
+    </div>`;
+}
+
+function renderPistas() {
+  return `
+    <div class="stats-sec">
+      <div class="stats-sec-hdr">Pistas</div>
+      ${kpiRow([
+        {val:_datos.semanas||0, lbl:'Semanas registradas', color:'azul'},
+        {val:_datos.bloques||0, lbl:'Bloques totales',     color:'verde'},
+      ])}
+    </div>`;
+}
+
+function renderStats() {
+  const el = document.getElementById('stats-contenido');
+  const renders = { general:renderGeneral, alumnos:renderAlumnos, grupos:renderGrupos,
+                    ejercicios:renderEjercicios, clases:renderClases, torneos:renderTorneos,
+                    cobros:renderCobros, pistas:renderPistas };
+  el.innerHTML = (renders[_seccion]||renderGeneral)();
+}
+
+async function cargar() {
+  showLoading('stats-contenido');
+  try {
+    const hoy = new Date();
+    let desde = null;
+    if (_periodo==='semana')    { desde = new Date(hoy); desde.setDate(hoy.getDate()-7); }
+    else if (_periodo==='mes')  { desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+    else if (_periodo==='trimestre') { desde = new Date(hoy); desde.setMonth(hoy.getMonth()-3); }
+    else if (_periodo==='anio') { desde = new Date(hoy.getFullYear(),0,1); }
+    const desdeStr = desde ? desde.toISOString().slice(0,10) : null;
+
+    const [alumnos, grupos, ejercicios, clases, torneos, cobros, semanas, bloques] = await Promise.all([
+      _sb.from('alumnos').select('id,nivel,created_at').eq('escuela_id',Store.escuelaId),
+      _sb.from('grupos').select('id,nombre').eq('escuela_id',Store.escuelaId),
+      _sb.from('ejercicios').select('id,nombre,usos,categoria').eq('escuela_id',Store.escuelaId).eq('activo',true),
+      _sb.from('clases').select('id,estado,fecha').eq('escuela_id',Store.escuelaId),
+      _sb.from('torneos').select('id,estado').eq('escuela_id',Store.escuelaId),
+      _sb.from('cobros').select('id,importe,fecha').eq('escuela_id',Store.escuelaId),
+      _sb.from('semanas_pista').select('id').eq('escuela_id',Store.escuelaId),
+      _sb.from('bloques_pista').select('id,semana_id').in('semana_id',(await _sb.from('semanas_pista').select('id').eq('escuela_id',Store.escuelaId)).data?.map(s=>s.id)||[]),
+    ]);
+
+    // Filtrar por período
+    const filtrar = (arr, campo) => !desdeStr ? arr : (arr||[]).filter(x=>x[campo]>=desdeStr);
+    const cobrosF   = filtrar(cobros.data,  'fecha');
+    const clasesF   = filtrar(clases.data,  'fecha');
+    const alumnosNuevos = desdeStr ? (alumnos.data||[]).filter(a=>a.created_at>=desdeStr).length : 0;
+
+    // Alumnos por nivel
+    const nivel = {};
+    (alumnos.data||[]).forEach(a=>{ nivel[a.nivel]=(nivel[a.nivel]||0)+1; });
+
+    // Alumnos por grupo (query extra)
+    const gruposConAlumnos = await Promise.all((grupos.data||[]).map(async g => {
+      const { count } = await _sb.from('alumno_grupos').select('*',{count:'exact',head:true}).eq('grupo_id',g.id);
+      return { ...g, num_alumnos: count||0 };
+    }));
+
+    // Top ejercicios
+    const topEj = [...(ejercicios.data||[])].sort((a,b)=>(b.usos||0)-(a.usos||0)).slice(0,6);
+
+    // Clases por estado
+    const est = {};
+    clasesF.forEach(c=>{ est[c.estado]=(est[c.estado]||0)+1; });
+
+    _datos = {
+      totalAlumnos:     (alumnos.data||[]).length,
+      alumnosNuevos,
+      alumnosPorNivel:  nivel,
+      totalGrupos:      (grupos.data||[]).length,
+      grupos:           gruposConAlumnos,
+      totalEjercicio:   (ejercicios.data||[]).length,
+      topEjercicios:    topEj,
+      totalClases:      clasesF.length,
+      clasesPorEstado:  est,
+      totalTorneos:     (torneos.data||[]).length,
+      torneosEnCurso:   (torneos.data||[]).filter(t=>t.estado==='en_curso').length,
+      torneosFinalizados:(torneos.data||[]).filter(t=>t.estado==='finalizado').length,
+      totalCobrado:     cobrosF.reduce((s,c)=>s+(+c.importe||0),0),
+      numCobros:        cobrosF.length,
+      semanas:          (semanas.data||[]).length,
+      bloques:          (bloques.data||[]).length,
+    };
+    renderStats();
+  } catch(e) {
+    showError('stats-contenido','Error al cargar stats');
+    console.error(e);
+  }
+}
+
+async function init() {
+  renderHeader({ titulo:'Escuela de Pádel', subtitulo:'Estadísticas', icono:'icons/stats.png', botonDerecho:'menu' });
+  renderNav('stats');
+  await initStore();
+  await cargar();
+}
+init();
+</script>
+</body>
+</html>

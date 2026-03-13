@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Clases — Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="header-container"></div>
+  <nav id="nav-container"></nav>
+
+  <main class="content">
+    <div class="filter-label">Estado</div>
+    <div class="filters f5">
+      <div class="fbtn active" data-value="" onclick="sf(this)"><img src="icons/todos_clase.png"><div class="flabel">Todos</div></div>
+      <div class="fbtn" data-value="Programada"  onclick="sf(this)"><img src="icons/programada.png"><div class="flabel">Prog.</div></div>
+      <div class="fbtn" data-value="Realizada"   onclick="sf(this)"><img src="icons/realizada.png"><div class="flabel">Real.</div></div>
+      <div class="fbtn" data-value="Suspendida"  onclick="sf(this)"><img src="icons/suspendida.png"><div class="flabel">Susp.</div></div>
+      <div class="fbtn" data-value="Festivo"     onclick="sf(this)"><img src="icons/festivo.png"><div class="flabel">Fest.</div></div>
+    </div>
+
+    <div class="filter-label">Nivel</div>
+    <div class="filters f4">
+      <div class="fbtn active" data-niv="" onclick="sfNiv(this)"><img src="icons/todos.png"><div class="flabel">Todos</div></div>
+      <div class="fbtn" data-niv="Principiante" onclick="sfNiv(this)"><img src="icons/principiante.png"><div class="flabel">Princ.</div></div>
+      <div class="fbtn" data-niv="Intermedio"   onclick="sfNiv(this)"><img src="icons/intermedio.png"><div class="flabel">Inter.</div></div>
+      <div class="fbtn" data-niv="Avanzado"     onclick="sfNiv(this)"><img src="icons/avanzado.png"><div class="flabel">Avanz.</div></div>
+    </div>
+
+    <div class="sec">
+      <img src="icons/clases.png">
+      <div class="sec-title">Clases</div>
+      <div class="sec-count" id="contador">—</div>
+    </div>
+
+    <div id="lista-clases"><div class="loading"><div class="spinner"></div></div></div>
+  </main>
+
+  <button class="fab" onclick="abrirNuevo()">+</button>
+
+  <!-- Sheet nueva clase -->
+  <div class="overlay" id="sh-clase">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="sh-titulo">Nueva clase</div>
+      <input type="hidden" id="cl-id">
+      <div class="frow">
+        <div class="fgrp">
+          <div class="flbl">Fecha</div>
+          <input class="finp" id="cl-fecha" type="date">
+        </div>
+        <div class="fgrp">
+          <div class="flbl">Hora</div>
+          <input class="finp" id="cl-hora" type="time" value="10:00">
+        </div>
+      </div>
+      <div class="fgrp">
+        <div class="flbl">Grupo</div>
+        <select class="fsel" id="cl-grupo"><option value="">Seleccionar grupo</option></select>
+      </div>
+      <div class="fgrp">
+        <div class="flbl">Estado</div>
+        <select class="fsel" id="cl-estado">
+          <option>Programada</option>
+          <option>Realizada</option>
+          <option>Suspendida</option>
+          <option>Festivo</option>
+        </select>
+      </div>
+      <div class="sheet-btns">
+        <button class="sbtn" onclick="closeSheet('sh-clase')">Cancelar</button>
+        <button class="sbtn prim" onclick="guardar()">✓ Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-titulo">¿Eliminar clase?</div>
+      <div class="confirm-texto" id="confirm-texto"></div>
+      <div class="confirm-btns">
+        <button class="cbtn" onclick="document.getElementById('confirm-overlay').classList.remove('open')">Cancelar</button>
+        <button class="cbtn danger" id="confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let _clases   = [];
+let _filtroEst= '';
+let _filtroNiv= '';
+
+const ESTADO_COLOR = { Programada:'#2563eb', Realizada:'#16a34a', Suspendida:'#e05a5a', Festivo:'#f59e0b' };
+const ESTADO_CHIP  = { Programada:'caz', Realizada:'cvd', Suspendida:'crd', Festivo:'cam' };
+const ICONO_CAT    = { Calentamiento:'icons/calentamiento.png', Carritos:'icons/carritos.png',
+                       Situaciones:'icons/situaciones.png', Partiditos:'icons/partiditos.png', Genérico:'icons/generico.png' };
+
+function sf(btn) {
+  btn.closest('.filters').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); _filtroEst = btn.dataset.value||''; filtrar();
+}
+function sfNiv(btn) {
+  btn.closest('.filters').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); _filtroNiv = btn.dataset.niv||''; filtrar();
+}
+
+function filtrar() {
+  const lista = _clases.filter(c => {
+    const estOk = !_filtroEst || c.estado === _filtroEst;
+    const nivOk = !_filtroNiv || (c.grupos && c.grupos.nivel === _filtroNiv);
+    return estOk && nivOk;
+  });
+  renderLista(lista);
+}
+
+function renderBloques(bloques) {
+  if (!bloques || !bloques.length) return '';
+  return `<div class="bloques-list">` +
+    bloques.map(b => `
+      <div class="bloque-ej">
+        <div class="bloque-ej-ico"><img src="${ICONO_CAT[b.categoria]||'icons/ejercicios.png'}"></div>
+        <div>
+          <div class="bloque-ej-nombre">${b.nombre}</div>
+          <div class="bloque-ej-sub">${b.categoria||''} · ${b.duracion||''}</div>
+        </div>
+      </div>`).join('') + `</div>`;
+}
+
+function renderAsistentes(asistentes) {
+  if (!asistentes || !asistentes.length) return '';
+  return `<div class="dl">Asistentes (${asistentes.length})</div>
+    <div class="asistentes-grid">` +
+    asistentes.map(a => `<div class="ast-item">✓ ${a.nombre}</div>`).join('') +
+    `</div>`;
+}
+
+function renderLista(lista) {
+  document.getElementById('contador').textContent = lista.length;
+  const el = document.getElementById('lista-clases');
+  if (!lista.length) { showEmpty('lista-clases','Sin clases con ese filtro'); return; }
+  el.innerHTML = lista.map(c => {
+    const grupo  = c.grupos?.nombre || 'Sin grupo';
+    const color  = ESTADO_COLOR[c.estado] || '#94a3b8';
+    const chip   = ESTADO_CHIP[c.estado]  || 'cgr';
+    const hora   = c.hora ? c.hora.slice(0,5) : '';
+    const bloq   = Array.isArray(c.ejercicios)  ? c.ejercicios  : [];
+    const asist  = Array.isArray(c.asistentes)  ? c.asistentes  : [];
+    return `
+    <div class="card" id="card-${c.id}">
+      <div class="card-main" onclick="toggleCard('${c.id}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:900;color:var(--texto)">${formatFecha(c.fecha)}${hora?' · '+hora:''}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+            <span style="font-size:12px;font-weight:700;color:var(--sub)">${grupo} · </span>
+            <span style="font-size:12px;font-weight:800;color:${color}">${c.estado}</span>
+          </div>
+          <div style="font-size:11px;color:var(--sutil);font-weight:600;margin-top:1px">· ${asist.length} asistentes · ${bloq.length} bloques</div>
+        </div>
+        <div class="chev" id="chev-${c.id}">▼</div>
+      </div>
+      <div class="exp" id="exp-${c.id}" style="padding:0 11px 10px">
+        ${renderBloques(bloq)}
+        ${renderAsistentes(asist)}
+        <div class="abtns">
+          <button class="abtn prim" onclick="abrirEditar(${JSON.stringify(c).replace(/"/g,'&quot;')})">✏️ Editar</button>
+          <button class="abtn dang" onclick="confirmarEliminar('${c.id}')">🗑 Eliminar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirNuevo() {
+  document.getElementById('sh-titulo').textContent = 'Nueva clase';
+  document.getElementById('cl-id').value    = '';
+  document.getElementById('cl-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cl-hora').value  = '10:00';
+  document.getElementById('cl-grupo').value = '';
+  document.getElementById('cl-estado').value= 'Programada';
+  openSheet('sh-clase');
+}
+
+function abrirEditar(c) {
+  document.getElementById('sh-titulo').textContent = 'Editar clase';
+  document.getElementById('cl-id').value     = c.id;
+  document.getElementById('cl-fecha').value  = c.fecha;
+  document.getElementById('cl-hora').value   = c.hora ? c.hora.slice(0,5) : '10:00';
+  document.getElementById('cl-grupo').value  = c.grupo_id || '';
+  document.getElementById('cl-estado').value = c.estado || 'Programada';
+  openSheet('sh-clase');
+}
+
+async function guardar() {
+  const grupo_id = document.getElementById('cl-grupo').value;
+  if (!grupo_id) { toast('Selecciona un grupo','warn'); return; }
+  const clase = {
+    id:       document.getElementById('cl-id').value || undefined,
+    fecha:    document.getElementById('cl-fecha').value,
+    hora:     document.getElementById('cl-hora').value,
+    grupo_id,
+    estado:   document.getElementById('cl-estado').value,
+  };
+  try {
+    await saveClase(clase);
+    closeSheet('sh-clase');
+    toast('Clase guardada','ok');
+    await cargar();
+  } catch(e) { toast('Error al guardar','err'); console.error(e); }
+}
+
+function confirmarEliminar(id) {
+  document.getElementById('confirm-texto').textContent = '¿Eliminar esta clase?';
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-ok').onclick = async () => {
+    document.getElementById('confirm-overlay').classList.remove('open');
+    try { await deleteClase(id); toast('Clase eliminada','ok'); await cargar(); }
+    catch(e) { toast('Error al eliminar','err'); }
+  };
+}
+
+async function cargar() {
+  showLoading('lista-clases');
+  _clases = await getClases();
+  filtrar();
+}
+
+async function init() {
+  renderHeader({ titulo:'Escuela de Pádel', subtitulo:'— clases registradas', icono:'icons/clases.png', botonDerecho:'menu' });
+  renderNav('clases');
+  await initStore();
+  // Cargar grupos en el select
+  getGrupos().then(gs => {
+    const sel = document.getElementById('cl-grupo');
+    gs.forEach(g => { const o=document.createElement('option'); o.value=g.id; o.textContent=g.nombre; sel.appendChild(o); });
+  });
+  await cargar();
+}
+init();
+</script>
+</body>
+</html>

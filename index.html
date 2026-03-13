@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#2563eb">
+  <title>Escuela de Pádel</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/inicio.png">
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div id="header-container"></div>
+
+  <!-- Nav -->
+  <nav id="nav-container"></nav>
+
+  <!-- Contenido -->
+  <main class="content" id="main">
+
+    <div class="sec">
+      <img src="icons/inicio.png" alt="Inicio">
+      <div class="sec-title">Inicio</div>
+    </div>
+
+    <!-- Últimos torneos -->
+    <div class="ini-sec">
+      <div class="ini-sec-header">
+        <div class="ini-sec-title">
+          <img src="icons/torneos.png" alt="">
+          Últimos torneos
+        </div>
+        <a class="ini-sec-link" href="torneos.html">Ver todos →</a>
+      </div>
+      <div id="lista-torneos">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- Clases recientes -->
+    <div class="ini-sec">
+      <div class="ini-sec-header">
+        <div class="ini-sec-title">
+          <img src="icons/clases.png" alt="">
+          Clases
+        </div>
+        <a class="ini-sec-link" href="clases.html">Ver todas →</a>
+      </div>
+      <div id="lista-clases">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- Ejercicios más usados -->
+    <div class="ini-sec">
+      <div class="ini-sec-header">
+        <div class="ini-sec-title">
+          <img src="icons/ejercicios.png" alt="">
+          Ejercicios más usados
+        </div>
+        <a class="ini-sec-link" href="ejercicios.html">Ver todos →</a>
+      </div>
+      <div id="lista-ejercicios">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- Top jugadores -->
+    <div class="ini-sec">
+      <div class="ini-sec-header">
+        <div class="ini-sec-title">
+          <img src="icons/stats.png" alt="">
+          Top jugadores
+        </div>
+        <a class="ini-sec-link" href="stats.html">Ver ranking →</a>
+      </div>
+      <div id="lista-ranking">
+        <div class="ini-empty">Sin datos de torneos aún<br>
+          <span style="font-size:11px">Mínimo 3 partidos jugados</span>
+        </div>
+      </div>
+    </div>
+
+  </main><!-- /content -->
+
+  <!-- Diálogo confirmación (compartido) -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-titulo">¿Estás seguro?</div>
+      <div class="confirm-texto" id="confirm-texto"></div>
+      <div class="confirm-btns">
+        <button class="cbtn" onclick="document.getElementById('confirm-overlay').classList.remove('open')">Cancelar</button>
+        <button class="cbtn danger" id="confirm-ok">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+
+// ── Iconos por tipo de torneo ──────────────────
+const ICONO_TORNEO = {
+  'Americano':   'icons/americano.png',
+  'Escalera':    'icons/escalera.png',
+  'Mexicano':    'icons/mexicano.png',
+  'Round Robin': 'icons/robin.png',
+};
+
+// ── Chips estado torneo ────────────────────────
+function chipEstadoTorneo(estado) {
+  if (estado === 'en_curso' || estado === 'En curso')
+    return '<span class="chip cam">En curso</span>';
+  if (estado === 'finalizado' || estado === 'Finalizado')
+    return '<span class="chip cgr">Finalizado</span>';
+  return `<span class="chip cgr">${estado}</span>`;
+}
+
+// ── Chips estado clase ─────────────────────────
+function chipEstadoClase(estado) {
+  const map = {
+    'Programada':  'caz',
+    'Realizada':   'cvd',
+    'Suspendida':  'crd',
+    'Festivo':     'cam',
+  };
+  return `<span class="chip ${map[estado] || 'cgr'}">${estado}</span>`;
+}
+
+// ── Render torneos ─────────────────────────────
+function renderTorneos(torneos) {
+  const el = document.getElementById('lista-torneos');
+  if (!torneos.length) {
+    el.innerHTML = '<div class="ini-empty">Sin torneos aún</div>';
+    return;
+  }
+  el.innerHTML = torneos.map(t => `
+    <a class="ini-row" href="torneos.html?id=${t.id}">
+      <div class="ini-ico">
+        <img src="${ICONO_TORNEO[t.tipo] || 'icons/torneos.png'}" alt="${t.tipo}">
+      </div>
+      <div class="ini-info">
+        <div class="ini-name">${t.nombre}</div>
+        <div class="ini-sub">${formatFecha(t.fecha)} · ${t.num_jugadores || '?'} jugadores</div>
+      </div>
+      ${chipEstadoTorneo(t.estado)}
+    </a>`).join('');
+}
+
+// ── Render clases ──────────────────────────────
+function renderClases(clases) {
+  const el = document.getElementById('lista-clases');
+  if (!clases.length) {
+    el.innerHTML = '<div class="ini-empty">Sin clases registradas</div>';
+    return;
+  }
+  el.innerHTML = clases.map(c => `
+    <div class="ini-row">
+      <div class="ini-ico">
+        <img src="icons/clases.png" alt="clase">
+      </div>
+      <div class="ini-info">
+        <div class="ini-name">${c.grupos?.nombre || 'Sin grupo'}</div>
+        <div class="ini-sub">${formatFecha(c.fecha)}${c.hora ? ' · ' + c.hora.slice(0,5) : ''}</div>
+      </div>
+      ${chipEstadoClase(c.estado)}
+    </div>`).join('');
+}
+
+// ── Render ejercicios ──────────────────────────
+function renderEjercicios(ejercicios) {
+  const el = document.getElementById('lista-ejercicios');
+  if (!ejercicios.length) {
+    el.innerHTML = '<div class="ini-empty">Sin uso registrado aún</div>';
+    return;
+  }
+  const ICONO_CAT = {
+    'Calentamiento': 'icons/calentamiento.png',
+    'Carritos':      'icons/carritos.png',
+    'Situaciones':   'icons/situaciones.png',
+    'Partiditos':    'icons/partiditos.png',
+    'Genérico':      'icons/generico.png',
+  };
+  el.innerHTML = ejercicios.map(e => `
+    <div class="ini-row">
+      <div class="ini-ico">
+        <img src="${ICONO_CAT[e.categoria] || 'icons/ejercicios.png'}" alt="${e.categoria}">
+      </div>
+      <div class="ini-info">
+        <div class="ini-name">${e.nombre}</div>
+        <div class="ini-sub">${e.categoria || ''} · ${e.usos || 0} usos</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Init ───────────────────────────────────────
+async function init() {
+  // Header y nav
+  renderHeader({
+    titulo:         'Escuela de Pádel',
+    subtitulo:      'Panel de gestión',
+    icono:          'icons/inicio.png',
+    botonDerecho:   'menu',
+  });
+  renderNav('inicio');
+
+  // Cargar datos
+  try {
+    await initStore();
+    const { torneos, clases, ejercicios } = await getResumenInicio();
+    renderTorneos(torneos);
+    renderClases(clases);
+    renderEjercicios(ejercicios);
+  } catch (err) {
+    console.error(err);
+    showError('lista-torneos', 'Error al cargar datos');
+    showError('lista-clases', 'Error al cargar datos');
+    showError('lista-ejercicios', 'Error al cargar datos');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
