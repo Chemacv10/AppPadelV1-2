@@ -2,8 +2,8 @@
 //  ESCUELA DE PÁDEL — Configuración
 // ─────────────────────────────────────────────
 
-const SUPABASE_URL  = 'https://tucegjotydqrgxdcboqn.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1Y2Vnam90eWRxcmd4ZGNib3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTAwNzEsImV4cCI6MjA4ODQ2NjA3MX0.TOuYM1rIhoFHCfbZTEHDu6VhmQABsUjgGYsekdsOckE';
+const SUPABASE_URL  = 'https://jlyyeolmcpxelwhasrux.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpseXllb2xtY3B4ZWx3aGFzcnV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzY5NzYsImV4cCI6MjA4OTE1Mjk3Nn0.FVgVVqfW2G0nK0yuSOR0yG7Hlw3-IZAqXJuPIxO78Rw';
 
 // Colores del sistema de diseño
 const COLOR = {
