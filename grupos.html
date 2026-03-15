@@ -33,6 +33,15 @@
     .hora-row .fsel { flex:1; }
     .hora-sep { font-size:14px; font-weight:900; color:var(--sutil); padding:0 2px; }
 
+    /* ── Nuevo inline ── */
+    .nuevo-inline {
+      display: flex; gap: 6px; align-items: center;
+      margin: -6px 0 8px; animation: fadeIn .15s ease;
+    }
+    .nuevo-inline .finp { flex: 1; }
+    .nuevo-inline .sbtn { padding: 9px 12px; min-width: 0; flex-shrink: 0; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
     /* ── Config sheet ── */
     .cfg-sec-titulo { font-size:10px; font-weight:900; color:var(--sutil); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 7px; }
     .cfg-chips-wrap { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
@@ -95,16 +104,19 @@
       <div class="frow">
         <div class="fgrp">
           <div class="flbl">Nivel</div>
-          <select class="fsel" id="gr-nivel">
-            <option>Principiante</option>
-            <option>Intermedio</option>
-            <option>Avanzado</option>
-          </select>
+          <select class="fsel" id="gr-nivel" onchange="onSelectNuevo(this,'nivel')"></select>
         </div>
         <div class="fgrp">
           <div class="flbl">Días</div>
           <input class="finp" id="gr-dias" placeholder="Ej: Lun / Mié">
         </div>
+      </div>
+
+      <!-- Inline nuevo nivel -->
+      <div class="nuevo-inline" id="nuevo-nivel-wrap" style="display:none">
+        <input class="finp" id="nuevo-nivel-inp" placeholder="Ej: Competición">
+        <button class="sbtn prim" type="button" onclick="confirmarNuevo('nivel')">✓</button>
+        <button class="sbtn" type="button" onclick="cancelarNuevo('nivel')">✕</button>
       </div>
 
       <!-- Hora inicio -->
@@ -130,17 +142,23 @@
       <!-- Pista -->
       <div class="fgrp">
         <div class="flbl">Pista</div>
-        <select class="fsel" id="gr-pista">
-          <option value="">— Sin pista —</option>
-        </select>
+        <select class="fsel" id="gr-pista" onchange="onSelectNuevo(this,'pistas')"></select>
+      </div>
+      <div class="nuevo-inline" id="nuevo-pistas-wrap" style="display:none">
+        <input class="finp" id="nuevo-pistas-inp" placeholder="Ej: Pista 4">
+        <button class="sbtn prim" type="button" onclick="confirmarNuevo('pistas')">✓</button>
+        <button class="sbtn" type="button" onclick="cancelarNuevo('pistas')">✕</button>
       </div>
 
       <!-- Monitor -->
       <div class="fgrp">
         <div class="flbl">Monitor</div>
-        <select class="fsel" id="gr-monitor">
-          <option value="">— Sin monitor —</option>
-        </select>
+        <select class="fsel" id="gr-monitor" onchange="onSelectNuevo(this,'monitores')"></select>
+      </div>
+      <div class="nuevo-inline" id="nuevo-monitores-wrap" style="display:none">
+        <input class="finp" id="nuevo-monitores-inp" placeholder="Ej: Laura">
+        <button class="sbtn prim" type="button" onclick="confirmarNuevo('monitores')">✓</button>
+        <button class="sbtn" type="button" onclick="cancelarNuevo('monitores')">✕</button>
       </div>
 
       <div class="sheet-btns">
@@ -150,41 +168,8 @@
     </div>
   </div>
 
-  <!-- ── Sheet: Configuración ── -->
-  <div class="overlay" id="sh-config">
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">⚙️ Configuración de grupos</div>
 
-      <div style="padding:0 15px 20px">
-
-        <!-- PISTAS -->
-        <div class="cfg-sec-titulo">🎾 Pistas disponibles</div>
-        <div class="cfg-chips-wrap" id="cfg-chips-pistas"></div>
-        <div class="cfg-add-row">
-          <input class="cfg-inp" id="cfg-inp-pistas" placeholder="Nueva pista…"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addCfgChip('pistas');}">
-          <button class="cfg-btn-add" type="button" onclick="addCfgChip('pistas')">+ Añadir</button>
-        </div>
-
-        <!-- MONITORES -->
-        <div class="cfg-sec-titulo" style="margin-top:18px">👤 Monitores</div>
-        <div class="cfg-chips-wrap" id="cfg-chips-monitores"></div>
-        <div class="cfg-add-row">
-          <input class="cfg-inp" id="cfg-inp-monitores" placeholder="Nuevo monitor…"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addCfgChip('monitores');}">
-          <button class="cfg-btn-add" type="button" onclick="addCfgChip('monitores')">+ Añadir</button>
-        </div>
-
-        <div class="sheet-btns" style="margin-top:18px">
-          <button class="sbtn" type="button" onclick="closeSheet('sh-config')">Cancelar</button>
-          <button class="sbtn prim" type="button" onclick="guardarConfig()">✓ Guardar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Confirmación -->
+  <!-- Confirmación  <!-- Confirmación -->
   <div class="confirm-overlay" id="confirm-overlay">
     <div class="confirm-box">
       <div class="confirm-titulo">¿Eliminar grupo?</div>
@@ -238,20 +223,70 @@ function setHora(prefijo, horaStr) {
   document.getElementById(prefijo+'-m').value = m?.padStart(2,'0').slice(0,2) || '00';
 }
 
-// ── Dropdowns pista / monitor ──────────────────
+// ── Niveles por defecto ────────────────────────
+let _cfgNiveles = ['Principiante', 'Intermedio', 'Avanzado'];
+
+// ── Dropdowns pista / monitor / nivel ──────────
 function fillDropdowns() {
-  const selPista   = document.getElementById('gr-pista');
-  const selMonitor = document.getElementById('gr-monitor');
-  const pistaCur   = selPista.value;
-  const monitorCur = selMonitor.value;
+  _fillSel('gr-nivel',   _cfgNiveles,   '— Sin nivel —',   'nivel');
+  _fillSel('gr-pista',   _cfgPistas,    '— Sin pista —',   'pistas');
+  _fillSel('gr-monitor', _cfgMonitores, '— Sin monitor —', 'monitores');
+}
 
-  selPista.innerHTML   = '<option value="">— Sin pista —</option>' +
-    _cfgPistas.map(p => `<option value="${p}">${p}</option>`).join('');
-  selMonitor.innerHTML = '<option value="">— Sin monitor —</option>' +
-    _cfgMonitores.map(m => `<option value="${m}">${m}</option>`).join('');
+function _fillSel(id, lista, placeholder, clave) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML =
+    `<option value="">${placeholder}</option>` +
+    lista.map(v => `<option value="${v}">${v}</option>`).join('') +
+    `<option value="__nuevo__">+ Añadir nuevo…</option>`;
+  if (cur && cur !== '__nuevo__') sel.value = cur;
+}
 
-  if (pistaCur)   selPista.value   = pistaCur;
-  if (monitorCur) selMonitor.value = monitorCur;
+// ── Lógica + Añadir nuevo en desplegable ───────
+function onSelectNuevo(sel, clave) {
+  if (sel.value !== '__nuevo__') return;
+  sel.value = ''; // volver a vacío mientras se escribe
+  const wrap = document.getElementById('nuevo-' + clave + '-wrap');
+  const inp  = document.getElementById('nuevo-' + clave + '-inp');
+  if (wrap) { wrap.style.display = 'flex'; inp.value = ''; inp.focus(); }
+}
+
+function confirmarNuevo(clave) {
+  const inp  = document.getElementById('nuevo-' + clave + '-inp');
+  const val  = inp.value.trim();
+  if (!val) { inp.focus(); return; }
+
+  // Añadir a la lista correcta
+  if (clave === 'pistas')    { if (!_cfgPistas.includes(val))    _cfgPistas.push(val); }
+  if (clave === 'monitores') { if (!_cfgMonitores.includes(val)) _cfgMonitores.push(val); }
+  if (clave === 'nivel')     { if (!_cfgNiveles.includes(val))   _cfgNiveles.push(val); }
+
+  // Guardar en Supabase en background
+  if (clave !== 'nivel') {
+    saveConfig(clave, clave === 'pistas' ? _cfgPistas : _cfgMonitores).catch(console.error);
+  } else {
+    saveConfig('niveles', _cfgNiveles).catch(console.error);
+  }
+
+  // Reconstruir el select y seleccionar el nuevo valor
+  const selId = clave === 'pistas' ? 'gr-pista' : clave === 'monitores' ? 'gr-monitor' : 'gr-nivel';
+  _fillSel(selId,
+    clave === 'pistas' ? _cfgPistas : clave === 'monitores' ? _cfgMonitores : _cfgNiveles,
+    clave === 'pistas' ? '— Sin pista —' : clave === 'monitores' ? '— Sin monitor —' : '— Sin nivel —',
+    clave
+  );
+  document.getElementById(selId).value = val;
+
+  // Ocultar inline
+  cancelarNuevo(clave);
+  toast('✓ "' + val + '" añadido', 'ok');
+}
+
+function cancelarNuevo(clave) {
+  const wrap = document.getElementById('nuevo-' + clave + '-wrap');
+  if (wrap) wrap.style.display = 'none';
 }
 
 // ── Filtros ────────────────────────────────────
@@ -491,11 +526,12 @@ async function init() {
 
   // Cargar config y grupos en paralelo
   const [cfg] = await Promise.all([
-    getConfigMultiple(['pistas','monitores']),
+    getConfigMultiple(['pistas','monitores','niveles']),
     cargar(),
   ]);
   _cfgPistas    = cfg.pistas    || [];
   _cfgMonitores = cfg.monitores || [];
+  if (cfg.niveles && cfg.niveles.length) _cfgNiveles = cfg.niveles;
   fillDropdowns();
 }
 
