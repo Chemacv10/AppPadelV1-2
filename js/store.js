@@ -419,3 +419,53 @@ async function getResumenInicio() {
     ejercicios: ejercicios.data || [],
   };
 }
+
+// ── Configuración (pistas, monitores, etc.) ───
+
+/**
+ * Obtiene el valor de una clave de configuración.
+ * Devuelve un array vacío si no existe.
+ */
+async function getConfig(clave) {
+  const { data, error } = await _sb
+    .from('configuracion')
+    .select('valor')
+    .eq('escuela_id', Store.escuelaId)
+    .eq('clave', clave)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.valor || [];
+}
+
+/**
+ * Guarda (upsert) el valor de una clave de configuración.
+ * @param {string} clave  ej: 'pistas' | 'monitores'
+ * @param {Array}  valor  array de strings
+ */
+async function saveConfig(clave, valor) {
+  const { error } = await _sb
+    .from('configuracion')
+    .upsert(
+      { escuela_id: Store.escuelaId, clave, valor, updated_at: new Date().toISOString() },
+      { onConflict: 'escuela_id,clave' }
+    );
+  if (error) throw error;
+}
+
+/**
+ * Carga de golpe varias claves de configuración.
+ * @param {string[]} claves
+ * @returns {Object} { pistas: [...], monitores: [...], ... }
+ */
+async function getConfigMultiple(claves) {
+  const { data, error } = await _sb
+    .from('configuracion')
+    .select('clave, valor')
+    .eq('escuela_id', Store.escuelaId)
+    .in('clave', claves);
+  if (error) throw error;
+  const result = {};
+  claves.forEach(c => result[c] = []);
+  (data || []).forEach(row => result[row.clave] = row.valor);
+  return result;
+}
