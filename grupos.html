@@ -162,21 +162,23 @@
         <div class="cfg-sec-titulo">🎾 Pistas disponibles</div>
         <div class="cfg-chips-wrap" id="cfg-chips-pistas"></div>
         <div class="cfg-add-row">
-          <input class="cfg-inp" id="cfg-inp-pista" placeholder="Nueva pista…" onkeydown="if(event.key==='Enter')addCfgChip('pistas')">
-          <button class="cfg-btn-add" onclick="addCfgChip('pistas')">+ Añadir</button>
+          <input class="cfg-inp" id="cfg-inp-pista" placeholder="Nueva pista…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addCfgChip('pistas');}">
+          <button class="cfg-btn-add" type="button" onclick="addCfgChip('pistas')">+ Añadir</button>
         </div>
 
         <!-- MONITORES -->
-        <div class="cfg-sec-titulo">👤 Monitores</div>
+        <div class="cfg-sec-titulo" style="margin-top:18px">👤 Monitores</div>
         <div class="cfg-chips-wrap" id="cfg-chips-monitores"></div>
         <div class="cfg-add-row">
-          <input class="cfg-inp" id="cfg-inp-monitor" placeholder="Nuevo monitor…" onkeydown="if(event.key==='Enter')addCfgChip('monitores')">
-          <button class="cfg-btn-add" onclick="addCfgChip('monitores')">+ Añadir</button>
+          <input class="cfg-inp" id="cfg-inp-monitor" placeholder="Nuevo monitor…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addCfgChip('monitores');}">
+          <button class="cfg-btn-add" type="button" onclick="addCfgChip('monitores')">+ Añadir</button>
         </div>
 
         <div class="sheet-btns" style="margin-top:18px">
-          <button class="sbtn" onclick="closeSheet('sh-config')">Cancelar</button>
-          <button class="sbtn prim" onclick="guardarConfig()">✓ Guardar</button>
+          <button class="sbtn" type="button" onclick="closeSheet('sh-config')">Cancelar</button>
+          <button class="sbtn prim" type="button" onclick="guardarConfig()">✓ Guardar</button>
         </div>
       </div>
     </div>
@@ -416,32 +418,36 @@ async function abrirConfig() {
 }
 
 function renderCfgChips(clave, lista) {
-  const wrap = document.getElementById(`cfg-chips-${clave}`);
-  wrap.innerHTML = lista.map(item => `
-    <div class="cfg-chip" data-val="${item}">
-      ${item}
-      <button class="cfg-chip-x" onclick="removeCfgChip(this,'${clave}')">×</button>
-    </div>`).join('');
+  const wrap = document.getElementById('cfg-chips-' + clave);
+  wrap.innerHTML = '';
+  (lista || []).forEach(item => _addChipToWrap(wrap, item));
 }
 
-function removeCfgChip(btn, clave) {
-  btn.closest('.cfg-chip').remove();
+function _addChipToWrap(wrap, val) {
+  const chip = document.createElement('div');
+  chip.className   = 'cfg-chip';
+  chip.dataset.val = val;
+  const span = document.createElement('span');
+  span.textContent = val;
+  const btn = document.createElement('button');
+  btn.className   = 'cfg-chip-x';
+  btn.textContent = '×';
+  btn.type        = 'button';
+  btn.onclick     = () => chip.remove();
+  chip.appendChild(span);
+  chip.appendChild(btn);
+  wrap.appendChild(chip);
 }
 
 function addCfgChip(clave) {
-  const inp  = document.getElementById(`cfg-inp-${clave}`);
+  const inp  = document.getElementById('cfg-inp-' + clave);
+  if (!inp) return;
   const val  = inp.value.trim();
-  if (!val) return;
-  const wrap = document.getElementById(`cfg-chips-${clave}`);
-  // Evitar duplicados
-  if ([...wrap.querySelectorAll('.cfg-chip')].some(c => c.dataset.val === val)) {
-    toast('Ya existe', 'warn'); return;
-  }
-  const chip = document.createElement('div');
-  chip.className = 'cfg-chip';
-  chip.dataset.val = val;
-  chip.innerHTML = `${val}<button class="cfg-chip-x" onclick="removeCfgChip(this,'${clave}')">×</button>`;
-  wrap.appendChild(chip);
+  if (!val) { inp.focus(); return; }
+  const wrap = document.getElementById('cfg-chips-' + clave);
+  const existe = [...wrap.querySelectorAll('.cfg-chip')].some(c => c.dataset.val === val);
+  if (existe) { toast('Ya existe', 'warn'); inp.select(); return; }
+  _addChipToWrap(wrap, val);
   inp.value = '';
   inp.focus();
 }
