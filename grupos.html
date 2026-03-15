@@ -5,6 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Grupos — Escuela de Pádel</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Chips pista y monitor ── */
+    .chip-pista   { background:#dbeafe; color:#1e40af; font-weight:900; font-size:11px; border-radius:7px; padding:3px 9px; display:inline-block; }
+    .chip-monitor { background:#f3e8ff; color:#7c3aed; font-weight:900; font-size:11px; border-radius:7px; padding:3px 9px; display:inline-block; }
+
+    /* ── Horario badge en expandido ── */
+    .horario-badge {
+      display:flex; align-items:center; gap:8px;
+      background:#f8fafc; border:1px solid var(--borde);
+      border-radius:10px; padding:8px 11px; margin-bottom:10px;
+      font-size:12px; font-weight:800; color:var(--texto);
+    }
+
+    /* ── Alumnos en expandido ── */
+    .als-lbl { font-size:10px; font-weight:900; color:var(--sutil); text-transform:uppercase; letter-spacing:.5px; margin-bottom:7px; }
+    .al-fila {
+      display:flex; align-items:center; gap:9px;
+      padding:7px 10px; background:var(--fondo);
+      border-radius:9px; margin-bottom:5px;
+    }
+    .av-sm { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; flex-shrink:0; }
+    .al-nombre { flex:1; font-size:12px; font-weight:800; color:var(--texto); }
+
+    /* ── Hora picker ── */
+    .hora-row { display:flex; gap:5px; align-items:center; }
+    .hora-row .fsel { flex:1; }
+    .hora-sep { font-size:14px; font-weight:900; color:var(--sutil); padding:0 2px; }
+
+    /* ── Config sheet ── */
+    .cfg-sec-titulo { font-size:10px; font-weight:900; color:var(--sutil); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 7px; }
+    .cfg-chips-wrap { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+    .cfg-chip { display:inline-flex; align-items:center; gap:4px; background:#f1f5f9; border:1.5px solid var(--borde); border-radius:18px; padding:4px 10px; font-size:12px; font-weight:700; color:var(--texto); }
+    .cfg-chip-x { background:none; border:none; color:var(--rojo); font-size:14px; font-weight:900; cursor:pointer; padding:0 0 0 2px; line-height:1; }
+    .cfg-add-row { display:flex; gap:6px; }
+    .cfg-inp { flex:1; background:#f8fafc; border:1.5px solid var(--borde); border-radius:10px; padding:9px 11px; font-size:13px; font-weight:700; color:var(--texto); outline:none; font-family:inherit; }
+    .cfg-inp:focus { border-color:var(--azul); background:var(--card); }
+    .cfg-btn-add { background:var(--texto); color:#fff; border:none; border-radius:10px; padding:9px 14px; font-size:12px; font-weight:900; cursor:pointer; white-space:nowrap; font-family:inherit; }
+  </style>
 </head>
 <body>
 <div class="page">
@@ -13,12 +51,22 @@
   <nav id="nav-container"></nav>
 
   <main class="content">
+
+    <!-- Filtros nivel -->
     <div class="filter-label">Nivel</div>
     <div class="filters f4">
       <div class="fbtn active" data-value="" onclick="sf(this)"><img src="icons/todos.png"><div class="flabel">Todos</div></div>
       <div class="fbtn" data-value="Principiante" onclick="sf(this)"><img src="icons/principiante.png"><div class="flabel">Princ.</div></div>
       <div class="fbtn" data-value="Intermedio"   onclick="sf(this)"><img src="icons/intermedio.png"><div class="flabel">Inter.</div></div>
       <div class="fbtn" data-value="Avanzado"     onclick="sf(this)"><img src="icons/avanzado.png"><div class="flabel">Avanz.</div></div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="search-wrap" style="background:var(--card);border:1.5px solid var(--borde);border-radius:12px;display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:10px;">
+      <span>🔍</span>
+      <input id="buscador" type="text" placeholder="Buscar por nombre, nivel, pista, monitor…"
+        style="border:none;outline:none;flex:1;font-size:13px;font-weight:600;color:var(--texto);background:none;font-family:inherit;"
+        oninput="filtrar()">
     </div>
 
     <div class="sec">
@@ -32,16 +80,18 @@
 
   <button class="fab" onclick="abrirNuevo()">+</button>
 
-  <!-- Sheet grupo -->
+  <!-- ── Sheet: Nuevo / Editar grupo ── -->
   <div class="overlay" id="sh-grupo">
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-title" id="sh-titulo">Nuevo grupo</div>
       <input type="hidden" id="gr-id">
+
       <div class="fgrp">
         <div class="flbl">Nombre</div>
-        <input class="finp" id="gr-nombre" placeholder="Ej: Grupo A">
+        <input class="finp" id="gr-nombre" placeholder="Ej: Lunes y Miércoles 17h">
       </div>
+
       <div class="frow">
         <div class="fgrp">
           <div class="flbl">Nivel</div>
@@ -52,24 +102,47 @@
           </select>
         </div>
         <div class="fgrp">
-          <div class="flbl">Pista</div>
-          <input class="finp" id="gr-pista" placeholder="Pista 1">
+          <div class="flbl">Días</div>
+          <input class="finp" id="gr-dias" placeholder="Ej: Lun / Mié">
         </div>
       </div>
+
+      <!-- Hora inicio -->
       <div class="fgrp">
-        <div class="flbl">Días</div>
-        <input class="finp" id="gr-dias" placeholder="Ej: L·X·V">
-      </div>
-      <div class="frow">
-        <div class="fgrp">
-          <div class="flbl">Hora inicio</div>
-          <input class="finp" id="gr-inicio" type="time" value="10:00">
-        </div>
-        <div class="fgrp">
-          <div class="flbl">Hora fin</div>
-          <input class="finp" id="gr-fin" type="time" value="11:30">
+        <div class="flbl">Hora inicio</div>
+        <div class="hora-row">
+          <select class="fsel" id="gr-inicio-h"></select>
+          <div class="hora-sep">:</div>
+          <select class="fsel" id="gr-inicio-m" style="max-width:75px"></select>
         </div>
       </div>
+
+      <!-- Hora fin -->
+      <div class="fgrp">
+        <div class="flbl">Hora fin</div>
+        <div class="hora-row">
+          <select class="fsel" id="gr-fin-h"></select>
+          <div class="hora-sep">:</div>
+          <select class="fsel" id="gr-fin-m" style="max-width:75px"></select>
+        </div>
+      </div>
+
+      <!-- Pista -->
+      <div class="fgrp">
+        <div class="flbl">Pista</div>
+        <select class="fsel" id="gr-pista">
+          <option value="">— Sin pista —</option>
+        </select>
+      </div>
+
+      <!-- Monitor -->
+      <div class="fgrp">
+        <div class="flbl">Monitor</div>
+        <select class="fsel" id="gr-monitor">
+          <option value="">— Sin monitor —</option>
+        </select>
+      </div>
+
       <div class="sheet-btns">
         <button class="sbtn" onclick="closeSheet('sh-grupo')">Cancelar</button>
         <button class="sbtn prim" onclick="guardar()">✓ Guardar</button>
@@ -77,6 +150,39 @@
     </div>
   </div>
 
+  <!-- ── Sheet: Configuración ── -->
+  <div class="overlay" id="sh-config">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">⚙️ Configuración de grupos</div>
+
+      <div style="padding:0 15px 20px">
+
+        <!-- PISTAS -->
+        <div class="cfg-sec-titulo">🎾 Pistas disponibles</div>
+        <div class="cfg-chips-wrap" id="cfg-chips-pistas"></div>
+        <div class="cfg-add-row">
+          <input class="cfg-inp" id="cfg-inp-pista" placeholder="Nueva pista…" onkeydown="if(event.key==='Enter')addCfgChip('pistas')">
+          <button class="cfg-btn-add" onclick="addCfgChip('pistas')">+ Añadir</button>
+        </div>
+
+        <!-- MONITORES -->
+        <div class="cfg-sec-titulo">👤 Monitores</div>
+        <div class="cfg-chips-wrap" id="cfg-chips-monitores"></div>
+        <div class="cfg-add-row">
+          <input class="cfg-inp" id="cfg-inp-monitor" placeholder="Nuevo monitor…" onkeydown="if(event.key==='Enter')addCfgChip('monitores')">
+          <button class="cfg-btn-add" onclick="addCfgChip('monitores')">+ Añadir</button>
+        </div>
+
+        <div class="sheet-btns" style="margin-top:18px">
+          <button class="sbtn" onclick="closeSheet('sh-config')">Cancelar</button>
+          <button class="sbtn prim" onclick="guardarConfig()">✓ Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmación -->
   <div class="confirm-overlay" id="confirm-overlay">
     <div class="confirm-box">
       <div class="confirm-titulo">¿Eliminar grupo?</div>
@@ -95,22 +201,79 @@
 <script src="js/store.js"></script>
 <script src="js/ui.js"></script>
 <script>
-let _grupos  = [];
-let _filtro  = '';
-let _alumnosGrupo = {};
 
+let _grupos       = [];
+let _filtroNivel  = '';
+let _alumnosGrupo = {};
+let _cfgPistas    = [];
+let _cfgMonitores = [];
+
+// ── Hora picker ────────────────────────────────
+function buildHoraPickers() {
+  const horas   = Array.from({length:16}, (_,i) => String(i+7).padStart(2,'0'));   // 07..22
+  const minutos = Array.from({length:12}, (_,i) => String(i*5).padStart(2,'0'));   // 00,05..55
+
+  ['gr-inicio-h','gr-fin-h'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = horas.map(h => `<option value="${h}">${h}</option>`).join('');
+  });
+  ['gr-inicio-m','gr-fin-m'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = minutos.map(m => `<option value="${m}">${m}</option>`).join('');
+  });
+}
+
+function getHora(prefijo) {
+  const h = document.getElementById(prefijo+'-h').value;
+  const m = document.getElementById(prefijo+'-m').value;
+  return `${h}:${m}`;
+}
+
+function setHora(prefijo, horaStr) {
+  if (!horaStr) return;
+  const [h, m] = horaStr.split(':');
+  document.getElementById(prefijo+'-h').value = h?.padStart(2,'0') || '10';
+  document.getElementById(prefijo+'-m').value = m?.padStart(2,'0').slice(0,2) || '00';
+}
+
+// ── Dropdowns pista / monitor ──────────────────
+function fillDropdowns() {
+  const selPista   = document.getElementById('gr-pista');
+  const selMonitor = document.getElementById('gr-monitor');
+  const pistaCur   = selPista.value;
+  const monitorCur = selMonitor.value;
+
+  selPista.innerHTML   = '<option value="">— Sin pista —</option>' +
+    _cfgPistas.map(p => `<option value="${p}">${p}</option>`).join('');
+  selMonitor.innerHTML = '<option value="">— Sin monitor —</option>' +
+    _cfgMonitores.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  if (pistaCur)   selPista.value   = pistaCur;
+  if (monitorCur) selMonitor.value = monitorCur;
+}
+
+// ── Filtros ────────────────────────────────────
 function sf(btn) {
   btn.closest('.filters').querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  _filtro = btn.dataset.value || '';
+  _filtroNivel = btn.dataset.value || '';
   filtrar();
 }
 
 function filtrar() {
-  const lista = _grupos.filter(g => !_filtro || g.nivel === _filtro);
+  const q = (document.getElementById('buscador')?.value || '').toLowerCase().trim();
+  const lista = _grupos
+    .filter(g => {
+      if (_filtroNivel && g.nivel !== _filtroNivel) return false;
+      if (!q) return true;
+      const haystack = [g.nombre, g.nivel, g.pista, g.monitor, g.dias].filter(Boolean).join(' ').toLowerCase();
+      return q.split(' ').every(palabra => haystack.includes(palabra));
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   renderLista(lista);
 }
 
+// ── Avatar ─────────────────────────────────────
 const COLORES = ['#2563eb','#16a34a','#f59e0b','#e05a5a','#7c3aed','#0891b2'];
 function colorGrupo(nombre) {
   let h = 0;
@@ -118,117 +281,218 @@ function colorGrupo(nombre) {
   return COLORES[Math.abs(h) % COLORES.length];
 }
 function abrev(nombre) {
-  return nombre.replace('Grupo ','G').replace('grupo ','G').substring(0,2).toUpperCase();
+  const partes = nombre.trim().split(' ');
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return nombre.slice(0,2).toUpperCase();
 }
 
-function renderAlumnos(grupoId, color) {
+// ── Render alumnos ─────────────────────────────
+function renderAlumnos(grupoId) {
   const als = _alumnosGrupo[grupoId] || [];
-  if (!als.length) return '<div style="font-size:11px;color:var(--sutil)">Sin alumnos asignados</div>';
-  return `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">` +
-    als.map(a => `<span style="background:${color};color:#fff;border-radius:18px;padding:2px 9px;font-size:10px;font-weight:800">${a.nombre}</span>`).join('') +
-    `</div>`;
+  if (!als.length) return '<div style="font-size:11px;color:var(--sutil);padding:4px 0">Sin alumnos asignados</div>';
+  return als.map(a => `
+    <div class="al-fila">
+      <div class="av-sm" style="background:${colorAvatar ? colorAvatar(a.nombre) : '#64748b'}">${iniciales ? iniciales(a.nombre) : a.nombre.slice(0,2).toUpperCase()}</div>
+      <div class="al-nombre">${a.nombre}</div>
+      ${chipNivel(a.nivel)}
+    </div>`).join('');
 }
 
+// ── Render lista ───────────────────────────────
 function renderLista(grupos) {
   document.getElementById('contador').textContent = grupos.length;
   const el = document.getElementById('lista-grupos');
-  if (!grupos.length) { showEmpty('lista-grupos','Sin grupos'); return; }
+  if (!grupos.length) { showEmpty('lista-grupos', 'Sin grupos'); return; }
+
   el.innerHTML = grupos.map(g => {
-    const color = colorGrupo(g.nombre);
+    const color    = colorGrupo(g.nombre);
+    const horario  = g.hora_inicio ? `${g.hora_inicio.slice(0,5)}–${(g.hora_fin||'').slice(0,5)}` : '';
+    const metaParts = [
+      g.hora_inicio ? `🕐 ${horario}` : null,
+    ].filter(Boolean).join(' · ');
+
+    const alumnos  = _alumnosGrupo[g.id] || [];
+    const nAlumnos = alumnos.length;
+
     return `
     <div class="card" id="card-${g.id}">
       <div class="card-main" onclick="toggleCard('${g.id}')">
         <div class="av sq" style="background:${color}">${abrev(g.nombre)}</div>
         <div class="ci">
           <div class="cn">${g.nombre}</div>
-          <div class="cm">
+          <div class="cm" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;align-items:center">
             ${chipNivel(g.nivel)}
-            ${g.dias ? `<span class="chip cam">${g.dias}</span>` : ''}
-            ${g.hora_inicio ? `<span class="chip cgr">${g.hora_inicio}–${g.hora_fin}</span>` : ''}
+            ${g.pista   ? `<span class="chip-pista">${g.pista}</span>`         : ''}
+            ${g.monitor ? `<span class="chip-monitor">👤 ${g.monitor}</span>`  : ''}
+          </div>
+          <div class="cm" style="font-size:11px;color:var(--sutil);font-weight:600;margin-top:2px">
+            ${nAlumnos} alumno${nAlumnos!==1?'s':''}${horario ? ' · '+horario : ''}${g.dias ? ' · '+g.dias : ''}
           </div>
         </div>
         <div class="chev" id="chev-${g.id}">▼</div>
       </div>
       <div class="exp" id="exp-${g.id}">
-        ${g.pista ? `<div class="dl">Pista</div><div class="dv">${g.pista}</div>` : ''}
-        <div class="dl">Alumnos</div>
-        ${renderAlumnos(g.id, color)}
+        ${(g.hora_inicio || g.pista || g.monitor || g.dias) ? `
+        <div class="horario-badge">
+          🕐 ${[g.dias, horario, g.pista, g.monitor ? '👤 '+g.monitor : null].filter(Boolean).join(' · ')}
+        </div>` : ''}
+        <div class="als-lbl">👥 Alumnos (${nAlumnos})</div>
+        ${renderAlumnos(g.id)}
         <div class="abtns">
           <button class="abtn prim" onclick="abrirEditar(${JSON.stringify(g).replace(/"/g,'&quot;')})">✏️ Editar</button>
-          <button class="abtn dang" onclick="confirmarEliminar('${g.id}','${g.nombre}')">🗑 Eliminar</button>
+          <button class="abtn dang" onclick="confirmarEliminar('${g.id}','${g.nombre.replace(/'/g,"\\'")}')">🗑 Eliminar</button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
+// ── Abrir nuevo / editar ───────────────────────
 function abrirNuevo() {
   document.getElementById('sh-titulo').textContent = 'Nuevo grupo';
-  ['gr-id','gr-nombre','gr-pista','gr-dias'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('gr-id').value     = '';
+  document.getElementById('gr-nombre').value = '';
+  document.getElementById('gr-dias').value   = '';
   document.getElementById('gr-nivel').value  = 'Principiante';
-  document.getElementById('gr-inicio').value = '10:00';
-  document.getElementById('gr-fin').value    = '11:30';
+  document.getElementById('gr-pista').value  = '';
+  document.getElementById('gr-monitor').value= '';
+  setHora('gr-inicio', '10:00');
+  setHora('gr-fin',    '11:30');
   openSheet('sh-grupo');
 }
 
 function abrirEditar(g) {
   document.getElementById('sh-titulo').textContent = 'Editar grupo';
-  document.getElementById('gr-id').value     = g.id;
-  document.getElementById('gr-nombre').value = g.nombre;
-  document.getElementById('gr-nivel').value  = g.nivel;
-  document.getElementById('gr-pista').value  = g.pista  || '';
-  document.getElementById('gr-dias').value   = g.dias   || '';
-  document.getElementById('gr-inicio').value = g.hora_inicio || '10:00';
-  document.getElementById('gr-fin').value    = g.hora_fin    || '11:30';
+  document.getElementById('gr-id').value      = g.id;
+  document.getElementById('gr-nombre').value  = g.nombre;
+  document.getElementById('gr-nivel').value   = g.nivel;
+  document.getElementById('gr-dias').value    = g.dias    || '';
+  document.getElementById('gr-pista').value   = g.pista   || '';
+  document.getElementById('gr-monitor').value = g.monitor || '';
+  setHora('gr-inicio', g.hora_inicio || '10:00');
+  setHora('gr-fin',    g.hora_fin    || '11:30');
   openSheet('sh-grupo');
 }
 
+// ── Guardar grupo ──────────────────────────────
 async function guardar() {
   const nombre = document.getElementById('gr-nombre').value.trim();
-  if (!nombre) { toast('Escribe el nombre del grupo','warn'); return; }
+  if (!nombre) { toast('Escribe el nombre del grupo', 'warn'); return; }
   const grupo = {
     id:          document.getElementById('gr-id').value || undefined,
     nombre,
     nivel:       document.getElementById('gr-nivel').value,
-    pista:       document.getElementById('gr-pista').value.trim(),
     dias:        document.getElementById('gr-dias').value.trim(),
-    hora_inicio: document.getElementById('gr-inicio').value,
-    hora_fin:    document.getElementById('gr-fin').value,
+    hora_inicio: getHora('gr-inicio'),
+    hora_fin:    getHora('gr-fin'),
+    pista:       document.getElementById('gr-pista').value,
+    monitor:     document.getElementById('gr-monitor').value,
   };
   try {
     await saveGrupo(grupo);
     closeSheet('sh-grupo');
-    toast('Grupo guardado','ok');
+    toast('Grupo guardado', 'ok');
     await cargar();
-  } catch(e) { toast('Error al guardar','err'); console.error(e); }
+  } catch(e) { toast('Error al guardar', 'err'); console.error(e); }
 }
 
+// ── Eliminar ───────────────────────────────────
 function confirmarEliminar(id, nombre) {
   document.getElementById('confirm-texto').textContent = `¿Eliminar "${nombre}"?`;
   document.getElementById('confirm-overlay').classList.add('open');
   document.getElementById('confirm-ok').onclick = async () => {
     document.getElementById('confirm-overlay').classList.remove('open');
-    try { await deleteGrupo(id); toast('Grupo eliminado','ok'); await cargar(); }
-    catch(e) { toast('Error al eliminar','err'); }
+    try { await deleteGrupo(id); toast('Grupo eliminado', 'ok'); await cargar(); }
+    catch(e) { toast('Error al eliminar', 'err'); }
   };
 }
 
+// ── Config pistas / monitores ──────────────────
+async function abrirConfig() {
+  // Renderizar chips actuales
+  renderCfgChips('pistas',   _cfgPistas);
+  renderCfgChips('monitores', _cfgMonitores);
+  openSheet('sh-config');
+}
+
+function renderCfgChips(clave, lista) {
+  const wrap = document.getElementById(`cfg-chips-${clave}`);
+  wrap.innerHTML = lista.map(item => `
+    <div class="cfg-chip" data-val="${item}">
+      ${item}
+      <button class="cfg-chip-x" onclick="removeCfgChip(this,'${clave}')">×</button>
+    </div>`).join('');
+}
+
+function removeCfgChip(btn, clave) {
+  btn.closest('.cfg-chip').remove();
+}
+
+function addCfgChip(clave) {
+  const inp  = document.getElementById(`cfg-inp-${clave}`);
+  const val  = inp.value.trim();
+  if (!val) return;
+  const wrap = document.getElementById(`cfg-chips-${clave}`);
+  // Evitar duplicados
+  if ([...wrap.querySelectorAll('.cfg-chip')].some(c => c.dataset.val === val)) {
+    toast('Ya existe', 'warn'); return;
+  }
+  const chip = document.createElement('div');
+  chip.className = 'cfg-chip';
+  chip.dataset.val = val;
+  chip.innerHTML = `${val}<button class="cfg-chip-x" onclick="removeCfgChip(this,'${clave}')">×</button>`;
+  wrap.appendChild(chip);
+  inp.value = '';
+  inp.focus();
+}
+
+async function guardarConfig() {
+  const pistas    = [...document.querySelectorAll('#cfg-chips-pistas .cfg-chip')].map(c => c.dataset.val);
+  const monitores = [...document.querySelectorAll('#cfg-chips-monitores .cfg-chip')].map(c => c.dataset.val);
+  try {
+    await Promise.all([
+      saveConfig('pistas',    pistas),
+      saveConfig('monitores', monitores),
+    ]);
+    _cfgPistas    = pistas;
+    _cfgMonitores = monitores;
+    fillDropdowns();
+    closeSheet('sh-config');
+    toast('✓ Configuración guardada', 'ok');
+  } catch(e) { toast('Error al guardar', 'err'); console.error(e); }
+}
+
+// ── Cargar ─────────────────────────────────────
 async function cargar() {
   showLoading('lista-grupos');
-  _grupos = await getGrupos();
-  // Cargar alumnos de cada grupo en paralelo
+  [_grupos] = await Promise.all([getGrupos()]);
   await Promise.all(_grupos.map(async g => {
     _alumnosGrupo[g.id] = await getAlumnosDeGrupo(g.id);
   }));
   filtrar();
 }
 
+// ── Init ───────────────────────────────────────
 async function init() {
-  renderHeader({ titulo:'Escuela de Pádel', subtitulo:'Grupos', icono:'icons/grupos.png', botonDerecho:'menu' });
+  buildHoraPickers();
+  renderHeader({
+    titulo: 'Escuela de Pádel', subtitulo: 'Grupos',
+    icono: 'icons/grupos.png', botonDerecho: 'config',
+    onConfig: 'abrirConfig',
+  });
   renderNav('grupos');
   await initStore();
-  await cargar();
+
+  // Cargar config y grupos en paralelo
+  const [cfg] = await Promise.all([
+    getConfigMultiple(['pistas','monitores']),
+    cargar(),
+  ]);
+  _cfgPistas    = cfg.pistas    || [];
+  _cfgMonitores = cfg.monitores || [];
+  fillDropdowns();
 }
+
 init();
 </script>
 </body>
